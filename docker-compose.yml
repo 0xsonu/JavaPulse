@@ -1,0 +1,59 @@
+version: "3.8"
+
+services:
+  # Frontend React App
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    ports:
+      - "3000:4173"
+    environment:
+      - VITE_WS_URL=ws://localhost:3001
+    depends_on:
+      - websocket-server
+
+  # WebSocket Server (Node.js)
+  websocket-server:
+    build:
+      context: .
+      dockerfile: docker/websocket/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      - kafka
+
+  # Java Code Executor
+  java-executor:
+    build:
+      context: .
+      dockerfile: docker/java-executor/Dockerfile
+    environment:
+      - KAFKA_BROKERS=kafka:9092
+    volumes:
+      - ./tmp/java:/app/tmp
+    depends_on:
+      - kafka
+
+  # Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
